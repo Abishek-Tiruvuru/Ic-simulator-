@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>⚡ Circuit Simulator — 21BMC205J</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#07090f;--panel:#0d1117;--panel2:#111827;--border:#1e293b;
+  --accent:#00d4ff;--accent2:#ff6b35;--accent3:#39ff14;--accent4:#bf5af2;
+  --text:#e2e8f0;--muted:#64748b;--comp:#0f172a;--compB:#334155;
+  --sel:#ff6b35;--grid:#141d2b;--red:#ff375f;--yellow:#ffd60a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:'Share Tech Mono','Courier New',monospace;color:var(--text);display:flex;flex-direction:column}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--panel)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* TOP BAR */
+#topbar{display:flex;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--border);gap:10px;flex-shrink:0;z-index:10}
+#logo{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;color:var(--accent);letter-spacing:3px;text-shadow:0 0 12px var(--accent),0 0 24px rgba(0,212,255,.3)}
+#logo span{color:var(--accent2);font-size:11px;display:block;letter-spacing:1px;font-weight:400;margin-top:-1px}
+.topbar-btns{display:flex;gap:6px;margin-left:auto}
+.btn{padding:5px 12px;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;transition:all .2s;letter-spacing:1px;border:1px solid var(--border);background:transparent;color:var(--muted)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.active-premade{background:var(--accent);color:#000;border-color:var(--accent);box-shadow:0 0 12px rgba(0,212,255,.4)}
+.btn.active-free{background:var(--accent2);color:#000;border-color:var(--accent2);box-shadow:0 0 12px rgba(255,107,53,.4)}
+.btn.active-grid{color:var(--accent);border-color:var(--accent)}
+.btn-icon{padding:5px 8px;font-size:13px}
+
+/* MAIN LAYOUT */
+#main{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* SIDEBAR */
+#sidebar{width:200px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transition:transform .3s}
+.sidebar-header{padding:8px 10px;font-size:9px;color:var(--muted);border-bottom:1px solid var(--border);letter-spacing:2px}
+.circuit-list{overflow-y:auto;flex:1}
+.circuit-item{padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);border-left:3px solid transparent;transition:all .15s;user-select:none}
+.circuit-item:hover{background:#1e293b50;border-left-color:var(--accent)}
+.circuit-item.active{background:#1e293b;border-left-color:var(--accent)}
+.circuit-item .ci-name{font-size:10px;color:var(--text);line-height:1.3}
+.circuit-item.active .ci-name{color:var(--accent)}
+.circuit-item .ci-cat{font-size:8px;color:var(--muted);margin-top:2px}
+
+.comp-palette{overflow-y:auto;flex:1;padding:6px}
+.comp-item{padding:7px 8px;margin-bottom:4px;cursor:grab;border:1px solid var(--border);border-radius:4px;background:var(--comp);display:flex;align-items:center;gap:8px;user-select:none;transition:all .15s}
+.comp-item:hover{border-color:var(--accent);background:#1e293b}
+.comp-item:active{cursor:grabbing}
+.comp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.comp-icon{font-size:14px;flex-shrink:0;width:20px;text-align:center}
+.comp-label{font-size:9px;color:var(--text)}
+
+/* CANVAS AREA */
+#canvas-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#canvas{flex:1;position:relative;overflow:hidden;cursor:default}
+#canvas svg{position:absolute;top:0;left:0;width:100%;height:100%}
+
+.drop-overlay{position:absolute;inset:0;border:2px dashed var(--accent);border-radius:4px;pointer-events:none;background:rgba(0,212,255,.03);display:none}
+.drop-overlay.show{display:block}
+
+/* OSCILLOSCOPE */
+#osc-panel{background:#08090f;border-top:1px solid var(--border);padding:10px 14px;flex-shrink:0}
+.osc-header{display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+.osc-title{font-size:10px;color:var(--accent);letter-spacing:2px;font-family:'Orbitron',monospace}
+.osc-legend{display:flex;align-items:center;gap:6px}
+.led{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.led-green{background:var(--accent3);box-shadow:0 0 6px var(--accent3)}
+.led-orange{background:var(--accent2);box-shadow:0 0 6px var(--accent2)}
+.osc-controls{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap}
+.osc-controls span{font-size:9px;color:var(--muted)}
+.tbtn{padding:2px 7px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--muted);cursor:pointer;font-size:9px;font-family:inherit;transition:all .15s}
+.tbtn:hover,.tbtn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.osc-run{padding:2px 10px;border-radius:3px;cursor:pointer;font-size:9px;font-family:inherit;border:1px solid var(--accent3);background:#0f3d1a;color:var(--accent3);transition:all .2s}
+.osc-run.paused{border-color:var(--red);background:#3d0f0f;color:var(--red)}
+.osc-channels{display:flex;gap:10px}
+.osc-ch{flex:1;min-width:0}
+.osc-ch-label{font-size:8px;letter-spacing:1px;margin-bottom:3px}
+.osc-ch-label.in{color:var(--accent3)}
+.osc-ch-label.out{color:var(--accent2)}
+canvas.osc-canvas{width:100%;height:80px;background:#060a10;border-radius:4px;border:1px solid #1a3a2a;display:block}
+canvas.osc-canvas.out{border-color:#3a1a0a}
+
+/* RIGHT PANEL */
+#right-panel{width:220px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.rp-header{padding:8px 10px;font-size:9px;color:var(--muted);border-bottom:1px solid var(--border);letter-spacing:2px}
+.rp-content{overflow-y:auto;flex:1;padding:10px}
+.circuit-name{font-size:12px;color:var(--accent);margin-bottom:4px;line-height:1.3;font-family:'Orbitron',monospace;font-size:10px}
+.circuit-desc{font-size:9px;color:var(--muted);margin-bottom:10px;line-height:1.6}
+.formula-box{background:#0a1628;border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:10px}
+.formula-title{font-size:8px;color:var(--accent);margin-bottom:4px;letter-spacing:1px}
+.formula-text{font-size:9px;color:var(--accent3);line-height:1.6;word-break:break-word}
+.param-section-title{font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:1px}
+.param-row{margin-bottom:8px}
+.param-label{font-size:8px;color:var(--muted);margin-bottom:2px}
+.param-input{width:100%;background:#0a1628;border:1px solid var(--border);color:var(--text);padding:5px 8px;font-size:11px;border-radius:3px;font-family:inherit;outline:none;transition:border-color .2s}
+.param-input:focus{border-color:var(--accent)}
+.computed-section{border-top:1px solid var(--border);padding-top:10px;margin-top:6px}
+.computed-row{display:flex;justify-content:space-between;margin-bottom:5px;padding:4px 6px;background:#0a1628;border-radius:3px;border:1px solid var(--border)}
+.computed-key{font-size:9px;color:var(--muted)}
+.computed-val{font-size:9px;color:var(--accent3);font-weight:bold}
+.selected-comp-box{margin-top:10px;padding:8px;background:#0a1628;border:1px solid var(--accent);border-radius:4px}
+.del-btn{width:100%;padding:5px;background:#3d0f0f;border:1px solid var(--red);color:var(--red);border-radius:3px;cursor:pointer;font-size:9px;font-family:inherit;margin-top:8px;transition:all .2s}
+.del-btn:hover{background:#5a1515}
+.clear-btn{width:100%;padding:4px;background:#1a0808;border:1px solid var(--red);color:var(--red);border-radius:3px;cursor:pointer;font-size:9px;font-family:inherit;margin-top:8px;transition:all .2s}
+.clear-btn:hover{background:#3d0f0f}
+.hint-text{font-size:9px;color:var(--muted);line-height:1.7}
+.hint-title{color:var(--accent);margin-bottom:6px;font-size:10px}
+
+/* MOBILE TOGGLES */
+#sidebar-toggle,#rp-toggle{display:none;background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 8px;border-radius:4px;cursor:pointer;font-size:13px;font-family:inherit}
+
+/* MOBILE OVERLAY */
+#mobile-sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:98}
+#mobile-sidebar-overlay.show{display:block}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  #logo{font-size:11px;letter-spacing:1px}
+  #logo span{display:none}
+  .topbar-btns .btn:not(.btn-icon){padding:5px 8px;font-size:9px;letter-spacing:0}
+  #sidebar-toggle,#rp-toggle{display:block}
+  #sidebar{position:fixed;top:0;left:0;height:100%;z-index:99;transform:translateX(-100%);width:220px}
+  #sidebar.mobile-open{transform:translateX(0)}
+  #right-panel{position:fixed;top:0;right:0;height:100%;z-index:99;transform:translateX(100%);width:240px}
+  #right-panel.mobile-open{transform:translateX(0)}
+  #osc-panel{padding:8px 10px}
+  .osc-channels{gap:6px}
+  canvas.osc-canvas{height:60px}
+  .osc-title{font-size:9px}
+  .osc-controls{gap:4px}
+}
+@media(max-width:480px){
+  .osc-channels{flex-direction:column;gap:6px}
+  #topbar{padding:6px 10px;gap:6px}
+}
+
+/* GLOW EFFECTS */
+.glow-cyan{text-shadow:0 0 8px var(--accent)}
+.glow-green{text-shadow:0 0 8px var(--accent3)}
+
+/* EMPTY CANVAS HINT */
+.canvas-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;opacity:.3}
+.canvas-hint .ch-icon{font-size:40px;margin-bottom:8px}
+.canvas-hint .ch-text{font-size:12px;color:var(--muted)}
+
+/* VALUE EDIT POPUP */
+#val-popup{position:absolute;background:var(--panel2);border:1px solid var(--accent);border-radius:6px;padding:8px 10px;z-index:50;display:none;min-width:130px;box-shadow:0 0 20px rgba(0,212,255,.2)}
+#val-popup label{font-size:8px;color:var(--muted);display:block;margin-bottom:3px}
+#val-popup input{width:100%;background:var(--comp);border:1px solid var(--accent);color:var(--text);padding:4px 6px;font-size:11px;border-radius:3px;font-family:inherit;outline:none}
+#val-popup .popup-name{font-size:9px;color:var(--accent);margin-bottom:5px;letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div id="logo">⚡ CIRCUIT SIM <span>21BMC205J</span></div>
+  <button id="sidebar-toggle" class="btn btn-icon" onclick="toggleSidebar()">☰</button>
+  <div class="topbar-btns">
+    <button class="btn active-premade" id="btn-premade" onclick="setMode('premade')">PRE-MADE</button>
+    <button class="btn" id="btn-free" onclick="setMode('freeform')">FREE-FORM</button>
+    <button class="btn btn-icon" id="btn-grid" onclick="toggleGrid()" title="Toggle Grid">⊞</button>
+  </div>
+  <button id="rp-toggle" class="btn btn-icon" onclick="toggleRightPanel()">ℹ</button>
+</div>
+
+<div id="main">
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sidebar-header" id="sidebar-header-label">SELECT CIRCUIT</div>
+  <div id="circuit-list" class="circuit-list"></div>
+  <div id="comp-palette" class="comp-palette" style="display:none"></div>
+  <div id="selected-comp-sidebar" style="display:none;padding:10px;border-top:1px solid var(--border);background:#0f172a"></div>
+</div>
+
+<div id="mobile-sidebar-overlay" onclick="closeSidebars()"></div>
+
+<!-- CANVAS AREA -->
+<div id="canvas-area">
+  <div id="canvas"
+    ondragover="handleDragOver(event)"
+    ondrop="handleDrop(event)"
+    ondragleave="handleDragLeave()"
+    onmousedown="canvasMouseDown(event)"
+    onmousemove="canvasMouseMove(event)"
+    onmouseup="canvasMouseUp(event)"
+    ontouchstart="touchStart(event)"
+    ontouchmove="touchMove(event)"
+    ontouchend="touchEnd(event)"
+  >
+    <svg id="circuit-svg"></svg>
+    <div class="drop-overlay" id="drop-overlay"></div>
+    <div class="canvas-hint" id="canvas-hint" style="display:none">
+      <div class="ch-icon">🔌</div>
+      <div class="ch-text">Drag components here<br>to build your circuit</div>
+    </div>
+    <div id="val-popup">
+      <div class="popup-name" id="popup-name">COMPONENT</div>
+      <label id="popup-label">Value</label>
+      <input type="number" id="popup-input" step="0.1" oninput="updateCompValue(this.value)"/>
+    </div>
+  </div>
+
+  <!-- OSCILLOSCOPE -->
+  <div id="osc-panel">
+    <div class="osc-header">
+      <div class="osc-title">◈ OSCILLOSCOPE</div>
+      <div class="osc-legend">
+        <div class="led led-green"></div><span style="font-size:9px;color:var(--accent3)">IN</span>
+        <div class="led led-orange" style="margin-left:8px"></div><span style="font-size:9px;color:var(--accent2)">OUT</span>
+      </div>
+      <div class="osc-controls">
+        <span>TIME/DIV:</span>
+        <button class="tbtn" onclick="setTimebase(0.5)">0.5x</button>
+        <button class="tbtn active" id="tb1" onclick="setTimebase(1)">1x</button>
+        <button class="tbtn" onclick="setTimebase(2)">2x</button>
+        <button class="osc-run" id="osc-run-btn" onclick="toggleOsc()">⏸ PAUSE</button>
+      </div>
+    </div>
+    <div class="osc-channels">
+      <div class="osc-ch">
+        <div class="osc-ch-label in">CH1 — INPUT</div>
+        <canvas class="osc-canvas" id="osc-in"></canvas>
+      </div>
+      <div class="osc-ch">
+        <div class="osc-ch-label out">CH2 — OUTPUT</div>
+        <canvas class="osc-canvas out" id="osc-out"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="right-panel">
+  <div class="rp-header" id="rp-header-label">CIRCUIT INFO</div>
+  <div class="rp-content" id="rp-content"></div>
+</div>
+</div>
+
+<script>
+// ─── DATA ──────────────────────────────────────────────────────────────────────
+const CIRCUITS = [
+  {id:"opamp_noninv",name:"Non-Inverting Amp",category:"Op-Amp",formula:"Vo = (1 + Rf/R1) × Vi",
+   desc:"Input at (+) terminal. Output in phase with input.",
+   params:{Vi:1,R1:10,Rf:40},labels:{Vi:"Input (V)",R1:"R1 (kΩ)",Rf:"Rf (kΩ)"},
+   compute:p=>({gain:1+p.Rf/p.R1,Vo:(1+p.Rf/p.R1)*p.Vi,phase_deg:0}),
+   inputWave:"sine",outputTransform:p=>({amp:Math.abs(1+p.Rf/p.R1),phase:0}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vi"},
+     {id:"c2",type:"Resistor",x:240,y:230,label:"R1",param:"R1"},
+     {id:"c3",type:"Resistor",x:360,y:110,label:"Rf",param:"Rf"},
+     {id:"c4",type:"OpAmp",x:420,y:160,label:"741"},
+     {id:"c5",type:"Output",x:570,y:160,label:"Vo"},
+   ]},
+  {id:"opamp_inv",name:"Inverting Amplifier",category:"Op-Amp",formula:"Vo = -(Rf/R1) × Vi",
+   desc:"Output is 180° out of phase with input.",
+   params:{Vi:1,R1:10,Rf:40},labels:{Vi:"Input (V)",R1:"R1 (kΩ)",Rf:"Rf (kΩ)"},
+   compute:p=>({gain:-(p.Rf/p.R1),Vo:-(p.Rf/p.R1)*p.Vi,phase_deg:180}),
+   inputWave:"sine",outputTransform:p=>({amp:p.Rf/p.R1,phase:Math.PI}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vi"},
+     {id:"c2",type:"Resistor",x:220,y:160,label:"R1",param:"R1"},
+     {id:"c3",type:"Resistor",x:360,y:110,label:"Rf",param:"Rf"},
+     {id:"c4",type:"OpAmp",x:430,y:160,label:"741"},
+     {id:"c5",type:"Output",x:570,y:160,label:"Vo"},
+   ]},
+  {id:"comparator",name:"Comparator",category:"Op-Amp",formula:"Vo = +Vsat if Vin<Vref, else -Vsat",
+   desc:"Open-loop. Output switches between ±Vsat.",
+   params:{Vin:1,Vref:0.5,Vcc:12},labels:{Vin:"Vin (V)",Vref:"Vref (V)",Vcc:"Vcc (V)"},
+   compute:p=>({Vo:p.Vin<p.Vref?p.Vcc-1:-(p.Vcc-1)}),
+   inputWave:"sine",outputTransform:p=>({type:"square"}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vin"},
+     {id:"c2",type:"VSource",x:60,y:270,label:"Vref"},
+     {id:"c3",type:"OpAmp",x:320,y:160,label:"741"},
+     {id:"c4",type:"Output",x:520,y:160,label:"Vo"},
+   ]},
+  {id:"integrator",name:"Integrator",category:"Op-Amp",formula:"Vo = -(1/RC)∫Vi dt",
+   desc:"Square wave → Triangle wave out.",
+   params:{Vi:2,R:10,C:0.1},labels:{Vi:"Input (V)",R:"R (kΩ)",C:"C (µF)"},
+   compute:p=>({tau:p.R*p.C,fc_Hz:(1/(2*Math.PI*p.R*p.C*1e-3)).toFixed(2)}),
+   inputWave:"square",outputTransform:p=>({type:"triangle"}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vi"},
+     {id:"c2",type:"Resistor",x:210,y:160,label:"R",param:"R"},
+     {id:"c3",type:"Capacitor",x:350,y:110,label:"C",param:"C"},
+     {id:"c4",type:"OpAmp",x:420,y:160,label:"741"},
+     {id:"c5",type:"Output",x:570,y:160,label:"Vo"},
+   ]},
+  {id:"differentiator",name:"Differentiator",category:"Op-Amp",formula:"Vo = -RC × dVi/dt",
+   desc:"Square wave → Spike/impulse out.",
+   params:{Vi:2,R:10,C:0.1},labels:{Vi:"Input (V)",R:"R (kΩ)",C:"C (µF)"},
+   compute:p=>({tau:p.R*p.C}),
+   inputWave:"square",outputTransform:p=>({type:"spike"}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vi"},
+     {id:"c2",type:"Capacitor",x:210,y:160,label:"C",param:"C"},
+     {id:"c3",type:"Resistor",x:350,y:110,label:"R",param:"R"},
+     {id:"c4",type:"OpAmp",x:420,y:160,label:"741"},
+     {id:"c5",type:"Output",x:570,y:160,label:"Vo"},
+   ]},
+  {id:"precision_rect",name:"Precision Rectifier",category:"Diode",formula:"Vo = |Vi| (no 0.7V drop)",
+   desc:"Half-wave for millivolt-range signals.",
+   params:{Vi:1,R1:10,Rf:10,RL:10},labels:{Vi:"Input (V)",R1:"R1 (kΩ)",Rf:"Rf (kΩ)",RL:"RL (kΩ)"},
+   compute:p=>({Vo:p.Vi>0?(p.Rf/p.R1)*p.Vi:0}),
+   inputWave:"sine",outputTransform:()=>({type:"halfwave"}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vi"},
+     {id:"c2",type:"Resistor",x:200,y:160,label:"R1",param:"R1"},
+     {id:"c3",type:"Diode",x:330,y:120,label:"D1"},
+     {id:"c4",type:"Diode",x:330,y:195,label:"D2"},
+     {id:"c5",type:"OpAmp",x:420,y:160,label:"741"},
+     {id:"c6",type:"Output",x:570,y:160,label:"Vo"},
+   ]},
+  {id:"lpf",name:"Active LPF",category:"Filter",formula:"fc = 1/(2πRC)",
+   desc:"Passes frequencies below fc, attenuates above.",
+   params:{Vi:1,R:15.9,C:1,Rf:10,R1:10},labels:{Vi:"Input (V)",R:"R (kΩ)",C:"C (µF)",Rf:"Rf (kΩ)",R1:"R1 (kΩ)"},
+   compute:p=>({fc_Hz:(1/(2*Math.PI*p.R*p.C*1e-3)).toFixed(2),gain_dB:(20*Math.log10(1+p.Rf/p.R1)).toFixed(2)}),
+   inputWave:"sine",outputTransform:p=>({type:"lpf"}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vi"},
+     {id:"c2",type:"Resistor",x:210,y:160,label:"R",param:"R"},
+     {id:"c3",type:"Capacitor",x:300,y:230,label:"C",param:"C"},
+     {id:"c4",type:"OpAmp",x:420,y:160,label:"741"},
+     {id:"c5",type:"Output",x:570,y:160,label:"Vo"},
+   ]},
+  {id:"hpf",name:"Active HPF",category:"Filter",formula:"fc = 1/(2πRC)",
+   desc:"Passes frequencies above fc, attenuates below.",
+   params:{Vi:1,R:15.9,C:1,Rf:10,R1:10},labels:{Vi:"Input (V)",R:"R (kΩ)",C:"C (µF)",Rf:"Rf (kΩ)",R1:"R1 (kΩ)"},
+   compute:p=>({fc_Hz:(1/(2*Math.PI*p.R*p.C*1e-3)).toFixed(2),gain_dB:(20*Math.log10(1+p.Rf/p.R1)).toFixed(2)}),
+   inputWave:"sine",outputTransform:p=>({type:"hpf"}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vi"},
+     {id:"c2",type:"Capacitor",x:210,y:160,label:"C",param:"C"},
+     {id:"c3",type:"Resistor",x:300,y:230,label:"R",param:"R"},
+     {id:"c4",type:"OpAmp",x:420,y:160,label:"741"},
+     {id:"c5",type:"Output",x:570,y:160,label:"Vo"},
+   ]},
+  {id:"clipper_pos",name:"Positive Clipper",category:"Wave Shaping",formula:"Clips above +Vref",
+   desc:"Removes positive portion above reference voltage.",
+   params:{Vi:3,Vref:1.5},labels:{Vi:"Input Peak (V)",Vref:"Vref (V)"},
+   compute:p=>({clip_level:p.Vref}),
+   inputWave:"sine",outputTransform:p=>({type:"clip_pos",level:p.Vref/p.Vi}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:160,label:"Vi"},
+     {id:"c2",type:"Diode",x:250,y:160,label:"D"},
+     {id:"c3",type:"VSource",x:340,y:230,label:"Vref"},
+     {id:"c4",type:"Output",x:490,y:160,label:"Vo"},
+   ]},
+  {id:"inst_amp",name:"Instrumentation Amp",category:"Op-Amp",formula:"Vo = (1+2Rf/Rg)(R2/R1)(V1-V2)",
+   desc:"High CMRR, high input impedance diff amplifier.",
+   params:{V1:1,V2:0.5,RF:10,RG:5,R1:10,R2:10},labels:{V1:"V1 (V)",V2:"V2 (V)",RF:"RF (kΩ)",RG:"RG (kΩ)",R1:"R1 (kΩ)",R2:"R2 (kΩ)"},
+   compute:p=>{const g=(1+2*p.RF/p.RG)*(p.R2/p.R1);return{gain:g.toFixed(3),Vo:(g*(p.V1-p.V2)).toFixed(3)}},
+   inputWave:"sine",outputTransform:p=>({amp:(1+2*p.RF/p.RG)*(p.R2/p.R1),phase:0}),
+   components:[
+     {id:"c1",type:"VSource",x:40,y:120,label:"V1"},
+     {id:"c2",type:"VSource",x:40,y:240,label:"V2"},
+     {id:"c3",type:"OpAmp",x:180,y:120,label:"U1"},
+     {id:"c4",type:"OpAmp",x:180,y:240,label:"U2"},
+     {id:"c5",type:"Resistor",x:260,y:185,label:"RG",param:"RG"},
+     {id:"c6",type:"OpAmp",x:420,y:180,label:"U3"},
+     {id:"c7",type:"Output",x:570,y:180,label:"Vo"},
+   ]},
+  {id:"wien",name:"Wien Bridge Oscillator",category:"Oscillator",formula:"fr = 1/(2πRC)",
+   desc:"RC sine wave oscillator with lead-lag network.",
+   params:{R:15.9,C:1},labels:{R:"R (kΩ)",C:"C (µF)"},
+   compute:p=>({fr_Hz:(1/(2*Math.PI*p.R*p.C*1e-3)).toFixed(2)}),
+   inputWave:"none",outputTransform:p=>({type:"sine_auto"}),
+   components:[
+     {id:"c1",type:"Resistor",x:160,y:120,label:"R",param:"R"},
+     {id:"c2",type:"Capacitor",x:260,y:120,label:"C",param:"C"},
+     {id:"c3",type:"Resistor",x:160,y:250,label:"R",param:"R"},
+     {id:"c4",type:"Capacitor",x:260,y:250,label:"C",param:"C"},
+     {id:"c5",type:"OpAmp",x:400,y:185,label:"741"},
+     {id:"c6",type:"Output",x:560,y:185,label:"Vo"},
+   ]},
+  {id:"schmitt",name:"Schmitt Trigger",category:"Op-Amp",formula:"VUT=Vsat×R1/(R1+R2)",
+   desc:"Comparator with hysteresis using positive feedback.",
+   params:{R1:10,R2:10,Vsat:12},labels:{R1:"R1 (kΩ)",R2:"R2 (kΩ)",Vsat:"Vsat (V)"},
+   compute:p=>({VUT:(p.Vsat*p.R1/(p.R1+p.R2)).toFixed(3),VLT:(-p.Vsat*p.R1/(p.R1+p.R2)).toFixed(3),hysteresis:(2*p.Vsat*p.R1/(p.R1+p.R2)).toFixed(3)}),
+   inputWave:"sine",outputTransform:p=>({type:"square"}),
+   components:[
+     {id:"c1",type:"VSource",x:60,y:180,label:"Vi"},
+     {id:"c2",type:"OpAmp",x:310,y:180,label:"741"},
+     {id:"c3",type:"Resistor",x:420,y:240,label:"R1",param:"R1"},
+     {id:"c4",type:"Resistor",x:420,y:130,label:"R2",param:"R2"},
+     {id:"c5",type:"Output",x:550,y:180,label:"Vo"},
+   ]},
+  {id:"r2r_dac",name:"R-2R Ladder DAC",category:"Digital",formula:"Vo=Vr×(Rf/R)×(d1×2⁻¹+d2×2⁻²+d3×2⁻³)",
+   desc:"3-bit digital to analog converter.",
+   params:{Vr:5,R:10,Rf:10,d1:1,d2:0,d3:1},labels:{Vr:"Vr (V)",R:"R (kΩ)",Rf:"Rf (kΩ)",d1:"d1 (MSB)",d2:"d2",d3:"d3 (LSB)"},
+   compute:p=>({Vo:(p.Vr*(p.Rf/p.R)*(p.d1*0.5+p.d2*0.25+p.d3*0.125)).toFixed(3),binary:`${p.d1}${p.d2}${p.d3}`}),
+   inputWave:"none",outputTransform:p=>({type:"dc",level:(p.Rf/p.R)*(p.d1*0.5+p.d2*0.25+p.d3*0.125)}),
+   components:[
+     {id:"c1",type:"Resistor",x:100,y:130,label:"2R",param:"R"},
+     {id:"c2",type:"Resistor",x:200,y:130,label:"2R",param:"R"},
+     {id:"c3",type:"Resistor",x:300,y:130,label:"2R",param:"R"},
+     {id:"c4",type:"Resistor",x:160,y:200,label:"R",param:"R"},
+     {id:"c5",type:"Resistor",x:260,y:200,label:"R",param:"R"},
+     {id:"c6",type:"OpAmp",x:420,y:175,label:"741"},
+     {id:"c7",type:"Output",x:570,y:175,label:"Vo"},
+   ]},
+  {id:"square_gen",name:"Square Wave Generator",category:"Oscillator",formula:"f = 1/(2RC·ln3)",
+   desc:"Astable multivibrator using Op-Amp.",
+   params:{R:10,C:0.1},labels:{R:"R (kΩ)",C:"C (µF)"},
+   compute:p=>({f_Hz:(1/(2*p.R*p.C*Math.log(3)*1e-3)).toFixed(2)}),
+   inputWave:"none",outputTransform:p=>({type:"square_auto"}),
+   components:[
+     {id:"c1",type:"Resistor",x:180,y:130,label:"R",param:"R"},
+     {id:"c2",type:"Capacitor",x:360,y:250,label:"C",param:"C"},
+     {id:"c3",type:"Resistor",x:330,y:130,label:"R1"},
+     {id:"c4",type:"Resistor",x:330,y:260,label:"R2"},
+     {id:"c5",type:"OpAmp",x:420,y:195,label:"741"},
+     {id:"c6",type:"Output",x:560,y:195,label:"Vo"},
+   ]},
+  {id:"ic555",name:"IC 555 Astable",category:"Timer",formula:"f = 1.44/((R1+2R2)×C)",
+   desc:"Free-running 555 timer oscillator.",
+   params:{R1:10,R2:10,C:0.1},labels:{R1:"R1 (kΩ)",R2:"R2 (kΩ)",C:"C (µF)"},
+   compute:p=>({f_Hz:(1.44/((p.R1+2*p.R2)*p.C*1e-3)).toFixed(2),duty_pct:((p.R1+p.R2)/(p.R1+2*p.R2)*100).toFixed(1)}),
+   inputWave:"none",outputTransform:p=>({type:"pwm",duty:(p.R1+p.R2)/(p.R1+2*p.R2)}),
+   components:[
+     {id:"c1",type:"Resistor",x:130,y:110,label:"R1",param:"R1"},
+     {id:"c2",type:"Resistor",x:130,y:200,label:"R2",param:"R2"},
+     {id:"c3",type:"Capacitor",x:260,y:250,label:"C",param:"C"},
+     {id:"c4",type:"IC555",x:370,y:160,label:"555"},
+     {id:"c5",type:"Output",x:540,y:165,label:"Vo"},
+   ]},
+];
+
+const FREE_COMPS = [
+  {type:"VSource",   icon:"⚡", label:"Voltage Source", color:"#39ff14"},
+  {type:"Resistor",  icon:"⟦Ω⟧", label:"Resistor",      color:"#ff9500"},
+  {type:"Capacitor", icon:"⊣⊢", label:"Capacitor",      color:"#00d4ff"},
+  {type:"Inductor",  icon:"⌇⌇",  label:"Inductor",       color:"#bf5af2"},
+  {type:"Diode",     icon:"▷|",  label:"Diode",          color:"#ff375f"},
+  {type:"OpAmp",     icon:"△",   label:"Op-Amp (741)",   color:"#ffd60a"},
+  {type:"IC555",     icon:"⬛",   label:"IC 555 Timer",  color:"#ff6b35"},
+  {type:"Ground",    icon:"⏚",   label:"Ground",         color:"#64748b"},
+  {type:"Output",    icon:"◉",   label:"Output Probe",   color:"#30d158"},
+];
+
+// ─── SVG COMPONENT RENDERERS ──────────────────────────────────────────────────
+const SVG_NS = "http://www.w3.org/2000/svg";
+function el(tag,attrs,children){
+  const e = document.createElementNS(SVG_NS,tag);
+  for(const[k,v] of Object.entries(attrs||{})) e.setAttribute(k,v);
+  for(const c of (children||[])) if(c) e.appendChild(c);
+  return e;
+}
+function txt(x,y,s,fill,sz,anchor="middle",fw="normal"){
+  return el("text",{x,y,"text-anchor":anchor,fill,fontSize:sz||8,fontFamily:"'Share Tech Mono',monospace","font-weight":fw},
+    [document.createTextNode(s)]);
+}
+function line(x1,y1,x2,y2,stroke,sw){return el("line",{x1,y1,x2,y2,stroke,"stroke-width":sw||1.5})}
+function rect(x,y,w,h,fill,stroke,sw,rx){return el("rect",{x,y,width:w,height:h,fill,stroke,"stroke-width":sw||1.5,rx:rx||0})}
+function circle(cx,cy,r,fill,stroke,sw){return el("circle",{cx,cy,r,fill,stroke,"stroke-width":sw||1.5})}
+function poly(pts,fill,stroke,sw){return el("polygon",{points:pts,fill,stroke,"stroke-width":sw||1.5})}
+function path(d,fill,stroke,sw){return el("path",{d,fill,stroke,"stroke-width":sw||1.5})}
+
+function makeComp(type,sel,label,value){
+  const accent="#00d4ff",accent2="#ff6b35",accent3="#39ff14",muted="#64748b",comp="#0f172a";
+  const s = sel?"#ff6b35":accent;
+  const sw = sel?2:1.5;
+  const g = el("g");
+
+  if(type==="VSource"){
+    g.append(
+      circle(30,28,20,comp,s,sw),
+      // AC wave path inside circle
+      path("M18,28 Q22,20 26,28 Q30,36 34,28 Q38,20 42,28","none",accent3,1.5),
+      line(10,28,0,28,s,sw),line(50,28,60,28,s,sw),
+      txt(30,52,label,muted,8),
+      value!=null?txt(30,62,value+"V",accent3,7):null
+    );
+  } else if(type==="Resistor"){
+    g.append(
+      line(0,20,10,20,s,sw),
+      rect(10,12,40,16,comp,s,sw,2),
+      // zigzag pattern inside
+      path("M14,20 L18,14 L22,26 L26,14 L30,26 L34,14 L38,26 L42,20","none",s,1),
+      line(50,20,60,20,s,sw),
+      txt(30,44,label,muted,8),
+      value!=null?txt(30,54,value+"kΩ",accent3,7):null
+    );
+  } else if(type==="Capacitor"){
+    g.append(
+      line(0,20,22,20,s,sw),
+      line(22,10,22,30,s,2.5),
+      line(28,10,28,30,s,2.5),
+      line(28,20,60,20,s,sw),
+      txt(30,44,label,muted,8),
+      value!=null?txt(30,54,value+"µF",accent3,7):null
+    );
+  } else if(type==="Inductor"){
+    g.append(
+      line(0,20,8,20,s,sw),
+      path("M8,20 a6,6 0 0,1 12,0 a6,6 0 0,1 12,0 a6,6 0 0,1 12,0 a6,6 0 0,1 12,0","none",s,sw),
+      line(56,20,64,20,s,sw),
+      txt(32,40,label,muted,8)
+    );
+  } else if(type==="Diode"){
+    g.append(
+      line(0,20,18,20,s,sw),
+      poly("18,12 18,28 34,20",accent2+"aa",s,sw),
+      line(34,12,34,28,s,2),
+      line(34,20,52,20,s,sw),
+      txt(26,40,label,muted,8)
+    );
+  } else if(type==="OpAmp"){
+    g.append(
+      poly("0,5 0,45 42,25",comp,s,sw),
+      line(42,25,60,25,s,sw),
+      txt(7,18,"+",muted,9),
+      txt(7,36,"−",muted,9),
+      txt(22,30,label,accent,7),
+      txt(30,58,label,muted,8)
+    );
+  } else if(type==="IC555"){
+    g.append(
+      rect(5,5,52,48,comp,s,sw,3),
+      txt(31,33,"555",accent2,11,"middle","bold"),
+      line(5,14,-5,14,s,sw),line(5,26,-5,26,s,sw),line(5,38,-5,38,s,sw),
+      line(57,20,67,20,s,sw),line(57,36,67,36,s,sw),
+      txt(31,66,"IC 555",muted,8)
+    );
+  } else if(type==="Ground"){
+    g.append(
+      line(30,0,30,20,s,sw),
+      line(20,20,40,20,s,sw),
+      line(23,26,37,26,s,1.2),
+      line(26,32,34,32,s,.8),
+      txt(30,46,"GND",muted,8)
+    );
+  } else if(type==="Output"){
+    g.append(
+      circle(22,22,16,comp,"#39ff14",sel?2.5:1.5),
+      txt(22,27,"OUT","#39ff14",8),
+      line(0,22,6,22,"#39ff14",sw),
+      // Probe marker
+      poly("38,16 38,28 48,22","#39ff14","none"),
+      txt(22,50,label,muted,8)
+    );
+  }
+  return g;
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let mode="premade",selectedCircuit=CIRCUITS[0],params={...CIRCUITS[0].params};
+let selectedComp=null,freeComponents=[],draggingComp=null,draggingId=null,dragOffset={x:0,y:0};
+let oscRunning=true,timebase=1,showGrid=true,animT=0,animFrame=null;
+let activePopupId=null;
+const OSC_W=500,OSC_H=80;
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function init(){
+  buildCircuitList();
+  buildCompPalette();
+  renderCircuit();
+  renderRightPanel();
+  resizeOscCanvases();
+  startOsc();
+  window.addEventListener("resize",()=>{resizeOscCanvases();renderCircuit()});
+}
+
+function resizeOscCanvases(){
+  ["osc-in","osc-out"].forEach(id=>{
+    const c=document.getElementById(id);
+    const r=c.parentElement.getBoundingClientRect();
+    c.width=Math.floor(r.width)||OSC_W; c.height=OSC_H;
+  });
+}
+
+// ─── CIRCUIT LIST ─────────────────────────────────────────────────────────────
+function buildCircuitList(){
+  const el=document.getElementById("circuit-list");
+  el.innerHTML="";
+  CIRCUITS.forEach(c=>{
+    const d=document.createElement("div");
+    d.className="circuit-item"+(selectedCircuit.id===c.id?" active":"");
+    d.innerHTML=`<div class="ci-name">${c.name}</div><div class="ci-cat">${c.category}</div>`;
+    d.onclick=()=>{selectedCircuit=c;params={...c.params};selectedComp=null;buildCircuitList();renderCircuit();renderRightPanel();if(window.innerWidth<768)closeSidebars()};
+    el.appendChild(d);
+  });
+}
+
+// ─── COMP PALETTE ─────────────────────────────────────────────────────────────
+function buildCompPalette(){
+  const el=document.getElementById("comp-palette");
+  el.innerHTML="";
+  FREE_COMPS.forEach(c=>{
+    const d=document.createElement("div");
+    d.className="comp-item";
+    d.draggable=true;
+    d.innerHTML=`<span class="comp-icon">${c.icon}</span><span class="comp-label">${c.label}</span>`;
+    d.style.setProperty("border-color","transparent");
+    d.onmouseenter=()=>d.style.borderColor=c.color;
+    d.onmouseleave=()=>d.style.borderColor="transparent";
+    d.ondragstart=()=>{draggingComp=c};
+    d.ontouchstart=(e)=>{draggingComp=c;e.preventDefault()};
+    el.appendChild(d);
+  });
+}
+
+// ─── MODE SWITCH ─────────────────────────────────────────────────────────────
+function setMode(m){
+  mode=m;
+  document.getElementById("btn-premade").className="btn"+(m==="premade"?" active-premade":"");
+  document.getElementById("btn-free").className="btn"+(m==="freeform"?" active-free":"");
+  document.getElementById("circuit-list").style.display=m==="premade"?"block":"none";
+  document.getElementById("comp-palette").style.display=m==="freeform"?"block":"none";
+  document.getElementById("sidebar-header-label").textContent=m==="premade"?"SELECT CIRCUIT":"COMPONENTS";
+  document.getElementById("rp-header-label").textContent=m==="premade"?"CIRCUIT INFO":"FREE-FORM GUIDE";
+  selectedComp=null;hidePopup();
+  renderCircuit();renderRightPanel();
+}
+
+function toggleGrid(){showGrid=!showGrid;document.getElementById("btn-grid").style.color=showGrid?"var(--accent)":"var(--muted)";renderCircuit()}
+
+// ─── RIGHT PANEL ─────────────────────────────────────────────────────────────
+function renderRightPanel(){
+  const el=document.getElementById("rp-content");
+  if(mode==="premade"){
+    const c=selectedCircuit;
+    const computed=c.compute(params);
+    let html=`
+      <div class="circuit-name">${c.name}</div>
+      <div class="circuit-desc">${c.desc}</div>
+      <div class="formula-box">
+        <div class="formula-title">FORMULA</div>
+        <div class="formula-text">${c.formula}</div>
+      </div>
+      <div class="param-section-title">PARAMETERS</div>`;
+    for(const[k,v] of Object.entries(c.params)){
+      html+=`<div class="param-row">
+        <div class="param-label">${c.labels?.[k]||k}</div>
+        <input class="param-input" type="number" step="0.1" value="${params[k]??v}" 
+          oninput="updateParam('${k}',this.value)"/>
+      </div>`;
+    }
+    html+=`<div class="computed-section"><div class="param-section-title">COMPUTED</div>`;
+    for(const[k,v] of Object.entries(computed)){
+      const disp=typeof v==="number"?(Math.abs(v)>1000?v.toExponential(2):parseFloat(v.toFixed(4))):String(v);
+      html+=`<div class="computed-row"><span class="computed-key">${k}</span><span class="computed-val">${disp}</span></div>`;
+    }
+    html+=`</div>`;
+    if(selectedComp){
+      const sc=c.components.find(x=>x.id===selectedComp);
+      if(sc) html+=`<div class="selected-comp-box">
+        <div style="font-size:9px;color:var(--accent);margin-bottom:4px">▶ ${sc.type}</div>
+        <div style="font-size:8px;color:var(--muted)">Label: ${sc.label}</div>
+        ${sc.param?`<div style="font-size:8px;color:var(--accent3);margin-top:3px">Value: ${params[sc.param]}</div>`:""}
+      </div>`;
+    }
+    el.innerHTML=html;
+  } else {
+    el.innerHTML=`
+      <div class="hint-text">
+        <div class="hint-title">How to use:</div>
+        <div>1. Drag components from the left panel onto the canvas</div>
+        <div style="margin-top:4px">2. Click a component to select it</div>
+        <div style="margin-top:4px">3. Drag to reposition</div>
+        <div style="margin-top:4px">4. Click to edit value</div>
+        <div style="margin-top:4px">5. Delete via side panel</div>
+      </div>
+      <div style="margin-top:14px;padding:8px;background:#0a1628;border-radius:4px;border:1px solid var(--border)">
+        <div style="font-size:8px;color:var(--accent);margin-bottom:4px">CANVAS STATS</div>
+        <div style="font-size:9px;color:var(--muted)">Components: <span style="color:var(--accent3)">${freeComponents.length}</span></div>
+        ${freeComponents.length>0?`<button class="clear-btn" onclick="clearAll()">CLEAR ALL</button>`:""}
+      </div>
+      <div style="margin-top:10px">
+        <div style="font-size:9px;color:var(--accent);margin-bottom:6px">Component Legend:</div>
+        ${FREE_COMPS.map(c=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="font-size:13px">${c.icon}</span>
+          <span style="font-size:8px;color:var(--muted)">${c.label}</span>
+        </div>`).join("")}
+      </div>`;
+  }
+}
+
+function updateParam(k,v){
+  params[k]=parseFloat(v)||0;
+  renderRightPanel();
+}
+
+// ─── RENDER CIRCUIT SVG ───────────────────────────────────────────────────────
+function renderCircuit(){
+  const svg=document.getElementById("circuit-svg");
+  svg.innerHTML="";
+  const hint=document.getElementById("canvas-hint");
+
+  if(showGrid){
+    const defs=el("defs");
+    const pat=el("pattern",{id:"cgrid",width:30,height:30,patternUnits:"userSpaceOnUse"});
+    pat.appendChild(path("M 30 0 L 0 0 0 30","none","#141d2b",0.5));
+    defs.appendChild(pat);
+    svg.appendChild(defs);
+    svg.appendChild(rect(0,0,"100%","100%","url(#cgrid)","none"));
+  }
+
+  if(mode==="premade"){
+    hint.style.display="none";
+    const comps=selectedCircuit.components;
+    // Draw wires first (behind components)
+    for(let i=0;i<comps.length-1;i++){
+      const a=comps[i],b=comps[i+1];
+      const x1=a.x+60,y1=a.y+20,x2=b.x,y2=b.y+20;
+      const mx=(x1+x2)/2;
+      const wirePath=el("path",{
+        d:`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`,
+        fill:"none",stroke:"#00d4ff","stroke-width":1.5,opacity:0.5
+      });
+      svg.appendChild(wirePath);
+      svg.appendChild(circle(x1,y1,2.5,"#00d4ff","none"));
+      svg.appendChild(circle(x2,y2,2.5,"#00d4ff","none"));
+    }
+    // Draw components
+    comps.forEach(comp=>{
+      const g=el("g",{transform:`translate(${comp.x},${comp.y})`,style:"cursor:pointer"});
+      g.appendChild(makeComp(comp.type,selectedComp===comp.id,comp.label,comp.param?params[comp.param]:undefined));
+      // Hover glow rect
+      const hr=rect(-4,-4,72,62,"transparent","transparent",0,4);
+      hr.style.transition="all .1s";
+      g.insertBefore(hr,g.firstChild);
+      g.onclick=(e)=>{e.stopPropagation();selectedComp=comp.id;renderCircuit();renderRightPanel()};
+      svg.appendChild(g);
+    });
+  } else {
+    hint.style.display=freeComponents.length===0?"flex":"none";
+    freeComponents.forEach(comp=>{
+      const g=el("g",{transform:`translate(${comp.x},${comp.y})`,style:"cursor:grab;user-select:none"});
+      if(selectedComp===comp.id){
+        g.appendChild(rect(-6,-6,76,68,"rgba(255,107,53,.08)","#ff6b35",1,4));
+      }
+      g.appendChild(makeComp(comp.type,selectedComp===comp.id,comp.label,comp.value));
+      g.onmousedown=(e)=>freeCompMouseDown(e,comp.id);
+      g.onclick=(e)=>{e.stopPropagation();selectFreeComp(comp.id)};
+      g.ontouchstart=(e)=>freeTouchStart(e,comp.id);
+      svg.appendChild(g);
+    });
+  }
+}
+
+// ─── FREE-FORM INTERACTION ────────────────────────────────────────────────────
+function selectFreeComp(id){
+  selectedComp=id;
+  renderCircuit();
+  updateSelectedSidebar();
+}
+
+function updateSelectedSidebar(){
+  const panel=document.getElementById("selected-comp-sidebar");
+  if(!selectedComp||mode!=="freeform"){panel.style.display="none";return}
+  const comp=freeComponents.find(c=>c.id===selectedComp);
+  if(!comp){panel.style.display="none";return}
+  panel.style.display="block";
+  panel.innerHTML=`
+    <div style="font-size:9px;color:var(--accent);margin-bottom:6px;letter-spacing:1px">▶ ${comp.type}</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span style="font-size:9px;color:var(--muted)">Value:</span>
+      <input type="number" value="${comp.value||1}" step="0.1"
+        style="width:70px;background:var(--border);border:1px solid var(--accent);color:var(--text);padding:2px 4px;font-size:10px;border-radius:3px;font-family:inherit;outline:none"
+        oninput="updateFreeCompValue('${comp.id}',this.value)"/>
+    </div>
+    <button class="del-btn" onclick="deleteComp('${comp.id}')">🗑 DELETE</button>`;
+}
+
+function updateFreeCompValue(id,v){
+  freeComponents=freeComponents.map(c=>c.id===id?{...c,value:parseFloat(v)||0}:c);
+  renderCircuit();renderRightPanel();
+}
+
+function deleteComp(id){
+  freeComponents=freeComponents.filter(c=>c.id!==id);
+  if(selectedComp===id)selectedComp=null;
+  renderCircuit();renderRightPanel();updateSelectedSidebar();
+}
+
+function clearAll(){freeComponents=[];selectedComp=null;renderCircuit();renderRightPanel();updateSelectedSidebar()}
+
+function freeCompMouseDown(e,id){
+  e.stopPropagation();
+  const svgEl=document.getElementById("circuit-svg");
+  const rect2=svgEl.getBoundingClientRect();
+  const comp=freeComponents.find(c=>c.id===id);
+  draggingId=id;dragOffset={x:e.clientX-rect2.left-comp.x,y:e.clientY-rect2.top-comp.y};
+  selectFreeComp(id);
+}
+
+function freeTouchStart(e,id){
+  e.preventDefault();
+  const t=e.touches[0];
+  const svgEl=document.getElementById("circuit-svg");
+  const rect2=svgEl.getBoundingClientRect();
+  const comp=freeComponents.find(c=>c.id===id);
+  draggingId=id;dragOffset={x:t.clientX-rect2.left-comp.x,y:t.clientY-rect2.top-comp.y};
+  selectFreeComp(id);
+}
+
+function canvasMouseDown(e){if(!draggingId){selectedComp=null;hidePopup();if(mode==="premade"){selectedComp=null;renderCircuit();renderRightPanel()}}}
+function canvasMouseMove(e){
+  if(!draggingId)return;
+  const svgEl=document.getElementById("circuit-svg");
+  const r=svgEl.getBoundingClientRect();
+  const x=e.clientX-r.left-dragOffset.x;
+  const y=e.clientY-r.top-dragOffset.y;
+  freeComponents=freeComponents.map(c=>c.id===draggingId?{...c,x:Math.max(0,x),y:Math.max(0,y)}:c);
+  renderCircuit();
+}
+function canvasMouseUp(){draggingId=null}
+function touchStart(e){}
+function touchMove(e){
+  if(!draggingId)return;
+  e.preventDefault();
+  const t=e.touches[0];
+  const svgEl=document.getElementById("circuit-svg");
+  const r=svgEl.getBoundingClientRect();
+  const x=t.clientX-r.left-dragOffset.x;
+  const y=t.clientY-r.top-dragOffset.y;
+  freeComponents=freeComponents.map(c=>c.id===draggingId?{...c,x:Math.max(0,x),y:Math.max(0,y)}:c);
+  renderCircuit();
+}
+function touchEnd(){draggingId=null}
+
+// Drop from palette
+function handleDragOver(e){e.preventDefault();document.getElementById("drop-overlay").classList.add("show")}
+function handleDragLeave(){document.getElementById("drop-overlay").classList.remove("show")}
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById("drop-overlay").classList.remove("show");
+  if(!draggingComp)return;
+  const svgEl=document.getElementById("circuit-svg");
+  const r=svgEl.getBoundingClientRect();
+  const x=e.clientX-r.left-30,y=e.clientY-r.top-25;
+  freeComponents.push({id:"fc_"+Date.now(),type:draggingComp.type,label:draggingComp.label,x:Math.max(0,x),y:Math.max(0,y),value:1});
+  draggingComp=null;
+  renderCircuit();renderRightPanel();
+}
+
+// ─── VALUE POPUP ──────────────────────────────────────────────────────────────
+function hidePopup(){
+  document.getElementById("val-popup").style.display="none";
+  activePopupId=null;
+}
+function updateCompValue(v){
+  if(!activePopupId)return;
+  freeComponents=freeComponents.map(c=>c.id===activePopupId?{...c,value:parseFloat(v)||0}:c);
+}
+
+// ─── OSCILLOSCOPE ─────────────────────────────────────────────────────────────
+function startOsc(){
+  if(animFrame)cancelAnimationFrame(animFrame);
+  function loop(){
+    if(oscRunning)animT+=0.025*timebase;
+    drawOsc();
+    animFrame=requestAnimationFrame(loop);
+  }
+  animFrame=requestAnimationFrame(loop);
+}
+
+function toggleOsc(){
+  oscRunning=!oscRunning;
+  const btn=document.getElementById("osc-run-btn");
+  btn.textContent=oscRunning?"⏸ PAUSE":"▶ RUN";
+  btn.className="osc-run"+(oscRunning?"":" paused");
+}
+
+function setTimebase(v){
+  timebase=v;
+  document.querySelectorAll(".tbtn").forEach(b=>{
+    b.classList.toggle("active",parseFloat(b.textContent)===v);
+  });
+}
+
+function drawOsc(){
+  const ci=document.getElementById("osc-in");
+  const co=document.getElementById("osc-out");
+  if(!ci||!co)return;
+  const W=ci.width,H=ci.height;
+  const t=animT;
+
+  function drawCh(canvas,waveFn,color,glowColor){
+    const ctx=canvas.getContext("2d");
+    ctx.clearRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle="#1e293b";ctx.lineWidth=.5;
+    for(let x=0;x<W;x+=W/8){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+    for(let y=0;y<H;y+=H/4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+    // Center
+    ctx.strokeStyle="#1e3a2f";ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+    // Wave
+    ctx.strokeStyle=color;ctx.lineWidth=2;
+    ctx.shadowColor=glowColor||color;ctx.shadowBlur=6;
+    ctx.beginPath();
+    for(let x=0;x<=W;x++){
+      const y=waveFn(x,W,H,t);
+      x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();ctx.shadowBlur=0;
+  }
+
+  // Input wave
+  const inWave=mode==="premade"?selectedCircuit.inputWave:"sine";
+  drawCh(ci,(x,W,H,t)=>{
+    const ph=(x/W)*Math.PI*6+t;
+    if(inWave==="none")return H/2;
+    if(inWave==="square")return H/2-(Math.sin(ph)>0?1:-1)*H*.35;
+    return H/2-Math.sin(ph)*H*.35;
+  },"#39ff14","#39ff14");
+
+  // Output wave
+  const transform=mode==="premade"?selectedCircuit.outputTransform(params):{amp:1,phase:0};
+  drawCh(co,(x,W,H,t)=>{
+    const ph=(x/W)*Math.PI*6+t;
+    const sin=Math.sin(ph);
+    const {type}=transform;
+    if(type==="square"||selectedCircuit?.id==="comparator"||selectedCircuit?.id==="schmitt")
+      return H/2-(sin>0?1:-1)*H*.38;
+    if(type==="triangle")return H/2-(2/Math.PI)*Math.asin(Math.min(1,Math.max(-1,sin)))*H*.35;
+    if(type==="halfwave")return H/2-Math.max(0,sin)*H*.65;
+    if(type==="clip_pos"){const l=transform.level||.5;return H/2-Math.min(sin,l)*H*.35*(1/Math.max(.1,l))}
+    if(type==="spike"){return H/2-(sin-Math.sin(ph-.12))*H*3}
+    if(type==="dc")return H/2-(transform.level||.5)*H*.6;
+    if(type==="sine_auto")return H/2-sin*H*.35;
+    if(type==="square_auto")return H/2-(sin>0?1:-1)*H*.38;
+    if(type==="pwm"){const d=transform.duty||.5,pos=((ph%(Math.PI*2))/(Math.PI*2));return H/2-(pos<d?1:-1)*H*.38}
+    if(type==="hpf")return H/2-Math.cos(ph)*H*.28;
+    if(type==="lpf")return H/2-sin*H*.32;
+    const a=Math.min(transform.amp||1,3);
+    return H/2-Math.sin(ph+(transform.phase||0))*H*.35*a;
+  },"#ff6b35","#ff6b35");
+}
+
+// ─── MOBILE PANELS ───────────────────────────────────────────────────────────
+function toggleSidebar(){
+  document.getElementById("sidebar").classList.toggle("mobile-open");
+  document.getElementById("mobile-sidebar-overlay").classList.toggle("show");
+}
+function toggleRightPanel(){
+  document.getElementById("right-panel").classList.toggle("mobile-open");
+  document.getElementById("mobile-sidebar-overlay").classList.add("show");
+}
+function closeSidebars(){
+  document.getElementById("sidebar").classList.remove("mobile-open");
+  document.getElementById("right-panel").classList.remove("mobile-open");
+  document.getElementById("mobile-sidebar-overlay").classList.remove("show");
+}
+
+// ─── START ───────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
